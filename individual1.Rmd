@@ -9,3 +9,143 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Loading Data
+```{r}
+library(readxl)
+defense <- read_excel("cyclonesFootball2018.xlsx", sheet = 'Defensive')
+offense <- read_excel("cyclonesFootball2018.xlsx", sheet = 'Offensive')
+biography <- read_excel("cyclonesFootball2018.xlsx", sheet = 'Biography')
+```
+
+
+Part one: Cleaning Data
+1. Player and opponent names as factors
+```{r}
+library(dplyr)
+library(tidyr)
+offense <- offense %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent),
+         Name = factor(Name))
+
+defense <- defense %>%
+  rename(Opponent = Opponent_Opponent) %>%
+  mutate(Opponent = factor(Opponent),
+         Name = factor(Name))
+
+biography <- biography %>%
+  mutate(Name = factor(Name))
+```
+
+
+2. Stats are numerical
+```{r}
+library(dplyr)
+library(tidyr)
+defense <- defense %>%
+  mutate(Tackles_Solo = as.numeric(Tackles_Solo),
+         Tackles_ASST = as.numeric(Tackles_ASST),
+         Tackles_TFL = as.numeric(Tackles_TFL),
+         Tackles_Sack = as.numeric(Tackles_Sack),
+         Turnover_FF = as.numeric(Turnover_FF),
+         Turnover_FR = as.numeric(Turnover_FR),
+         Turnover_INT = as.numeric(Turnover_INT),
+         Pass_QBH = as.numeric(Pass_QBH),
+         Pass_PB = as.numeric(Pass_PB))
+
+offense <- offense %>%
+  rename(Passing_CMP_ATT = "Passing_CMP-ATT")
+
+offense <- offense %>%
+  mutate(Receiving_REC = as.numeric(Receiving_REC),
+         Receiving_YDS = as.numeric(Receiving_YDS),
+         Receiving_TD = as.numeric(Receiving_TD),
+         Rushing_ATT = as.numeric(Rushing_ATT),
+         Rushing_YDS = as.numeric(Rushing_YDS),
+         Rushing_TD = as.numeric(Rushing_TD),
+         Passing_YDS = as.numeric(Passing_YDS),
+         Passing_TD = as.numeric(Passing_TD),
+         Passing_INT = as.numeric(Passing_INT)) 
+
+offense <- separate(offense, "Passing_CMP_ATT", c("Passing_CMP", "Passing_ATT"), sep= "-\r\n")
+
+offense <- offense %>%
+  mutate(Passing_CMP = as.numeric("Passing_CMP"),
+         Passing_ATT = as.numeric("Passing_ATT"))
+
+biography <- biography %>% mutate(Weight = as.numeric(Weight))
+
+offClean <- offense
+defClean <- defense
+bioClean <- biography 
+
+str(offClean)
+str(defClean)
+str(bioClean)
+```
+
+Part two: Tidying (1)
+```{r}
+defClean <- defClean %>% gather(key= Statistic, value = Count, 3:11)
+library(ggplot2)
+ggplot(defClean, aes(x=Count)) +geom_histogram(bins=10) + facet_wrap(~Statistic) + ylab("Number of players")
+```
+
+From here, you can see that interceptions and forced fumbles are most rare. This makes sense, as turnovers are fairly infrequent in football, and for the part, cornerbacks and safeties are in the best position to intercept a pass.
+
+Kansas State vs. West Virginia 
+```{r}
+defClean_Solo <- defClean[defClean$Statistic=='Tackles_Solo',] %>% group_by(Name)
+complete <- filter(defClean_Solo, Opponent=='West Virginia' | Opponent=='Kansas State')%>% spread(key=Opponent, value=Count)
+names(complete) <- c('Name', 'Statisitic', 'KSU','WVU')
+complete[is.na(complete)] <- 0
+ggplot(complete, aes(x=WVU, y=KSU), group_by(Name)) + geom_point() + xlab("Tackles Against WVU") + ylab("Tackles Against KSU") + ggtitle("Solo Tackles Against Kansas State and West Virginia")
+```
+
+
+From this, I would determine that better defense was played against Kansas State. While there are not many players that had a large number of solo tackles in both games, there was a larger clump of players that had between 1-4 solo tackles against KSU, that did not perform well against WVU. Therefore, those small increments of fewer tackles led to more overall solo tackles against Kansas State.
+
+
+Part two: Tidying (2)
+```{r}
+bioClean <- separate(bioClean, "Hometown", c('City', 'State'), sep = ", ")
+a <- bioClean %>% group_by(State) %>% summarise(Num_Players = n())
+a
+```
+
+
+Part three: Joining data frames
+```{r}
+offJoin <- left_join(offClean, bioClean, by= 'Name')
+
+yrds <- offJoin[offJoin$Receiving_YDS != 0,] %>% filter(!is.na(Name))
+ggplot(yrds, aes(x= Weight, y = Receiving_YDS)) + geom_point() + ggtitle("Weight vs. Receiving Yards") + xlab("Weight") + ylab("Receiving Yards")
+```
+
+
+I would claim that there is not much of a trend between receiving yards and weight once a receiver weighs around 200lbs. The only receiver listed at 225 is Hakeem Butler, so it would make sense that there are outliers for his performance.
+
+```{r}
+noHakeem <- yrds[yrds$Name != "Butler, Hakeem", ]
+ggplot(noHakeem, aes(x= Weight, y = Receiving_YDS)) + geom_point() + ggtitle("Weight vs. Receiving Yards without Hakeem Butler") + xlab("Weight") + ylab("Receiving Yards")
+```
+
+
+Examining the dataset without Hakeem Butler, it further shows that the distribution is fairly even. Therefore, I would claim that weight is not as important to receiving yards. However, it probably would have a stronger relationship with yards after catch (data not included in the offClean dataset).
+
+
+For my own exploration, I wanted to look at height vs receiving yards, rather than weight. I would expect this to take a more positive linear relationship, as taller receivers tend to be more successful given equal levels of athleticism.
+
+```{r}
+bioClean <- separate(bioClean, "Height", c('Feet', 'Inches'), sep = "-")
+bioClean <- bioClean %>% mutate(Feet = as.numeric(Feet), Inches = as.numeric(Inches))
+bioClean <- bioClean %>% mutate(Height = (Feet*12) + Inches)
+
+offJoinH <- left_join(offClean, bioClean, by= 'Name')
+
+yrdsH <- offJoinH[offJoinH$Receiving_YDS != 0,] %>% filter(!is.na(Name))
+ggplot(yrdsH, aes(x= Height, y = Receiving_YDS)) + geom_point() + ggtitle("Height vs. Receiving Yards") + xlab("Height") + ylab("Receiving Yards")
+```
+
+
+This surprised me a little to see that the tallest receivers were not the most successful in terms of overall yards. However, it is important to note that taller receivers may have more trouble if they get pushed around, as well as the fact that the Iowa State receiving corps is not all that deep.
