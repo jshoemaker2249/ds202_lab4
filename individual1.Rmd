@@ -99,7 +99,7 @@ defClean_Solo <- defClean[defClean$Statistic=='Tackles_Solo',] %>% group_by(Name
 complete <- filter(defClean_Solo, Opponent=='West Virginia' | Opponent=='Kansas State')%>% spread(key=Opponent, value=Count)
 names(complete) <- c('Name', 'Statisitic', 'KSU','WVU')
 complete[is.na(complete)] <- 0
-ggplot(complete, aes(x=WVU, y=KSU), group_by(Name)) + geom_point() + xlab("Tackles Against WVU") + ylab("Tackles Against KSU") + ggtitle("Solo Tackles Against Kansas State and West Virginia")
+ggplot(complete, aes(x=WVU, y=KSU), group_by(Name)) + geom_point() + xlim(c(0,5))+ ylim(c(0,8)) +xlab("Tackles Against WVU") + ylab("Tackles Against KSU") + ggtitle("Solo Tackles Against Kansas State and West Virginia")
 ```
 
 
