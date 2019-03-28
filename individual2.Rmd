@@ -1,6 +1,6 @@
 ---
 title: "lab4"
-author: "Qinwen Yang,AngelQinwen"
+author: "Qinwen Yang, AngelQinwen"
 date: "3/14/2019"
 output: html_document
 ---
@@ -52,20 +52,15 @@ str(biography)
 ```
 3.Bonus: Change the Height column in biography into numeric. (Hint: Use a unit that works well)
 ```{r}
-
-#biography$Height <- as.numeric(gsub("-","",biography$Height))
-#str(biography)
-#first, separate 6-0 to two columns feet, inches
-#second, change type to numeric
-#third, apply formula
+#First, separate 6-0 to two columns feet, inches
+#Second, change two column types to numeric
+#Third, apply centimeter formula
 
 SepHeight <- biography %>% separate(Height, into=c('feet', 'inches'), sep = "-")
-SepHeight
 SepHeight$feet <- as.numeric(SepHeight$feet)
 SepHeight$inches <- as.numeric(SepHeight$inches)
 SepHeight <- SepHeight %>% mutate(Centimeter = SepHeight$feet * 30.48 + SepHeight$inches * 2.54)
 SepHeight
-
 
 
 
@@ -91,11 +86,12 @@ defClean
 2. Create a histogram for each defensive statistic. Use facet_wrap to draw all histograms in a single plot. What defensive skills are rare?
 ```{r}
 
-ggplot(defClean, aes(x=Statistic))+geom_histogram(binwidth = 1)+facet_wrap(~Type) + ylab("Number of Players")
+ggplot(defClean, aes(x=Statistic))+geom_histogram(binwidth = 1)+facet_wrap(~Type) + ylab("Number of Players")+ggtitle("Relationship between Number of players and Statistic")
 
 
 ```
-Conclusion: From the plot, it shows Turnover_FR and Turnover_INT skills are most rare.
+
+Conclusion: From the plot, it shows that Turnover_FR and Turnover_INT skills are most rare.
 
 
 3. Did ISU have better defense against West Virginia or Kansas State? Answer this question by creating a scatterplot with x-axis being the number of solo tackles (by each player) against West Virginia, and y-axis being that against Kansas State. A large number of solo tackles indicates good defense.
@@ -106,10 +102,13 @@ TwoState <- defense %>%
   spread(key=Opponent, value=Tackles_Solo)
 TwoState 
 TwoState <- TwoState %>% rename(KAN = `Kansas State`, West = `West Virginia`)
-ggplot(TwoState, aes(x=West, y=KAN))+geom_point()
+#ggplot(TwoState, aes(x=West, y=KAN))+geom_point(position = 'jitter')+geom_abline(slope=1, intercept = 0)
+ggplot(TwoState, aes(x=West, y=KAN)) + geom_point(position = 'jitter')+xlab('solo tackles against West Virginia') + ylab('solo tackles against Kansas')+xlim(c(0,5))+ylim(c(0,10))
 
 
 ```
+
+Conclusion: From this plot, since a large number of solo tackles means good defense, thus we are able to conclude that ISU have better defense against Kansas State.
 
 Part Two: Tidying (2)
 
@@ -118,6 +117,8 @@ Part Two: Tidying (2)
 newHometown <- biography
 newHometown <- newHometown %>% separate(Hometown, into = c('city', 'state'), sep=",") %>% select(city, state)
 head(newHometown)
+#table(newHometown$city)
+#table(newHometown$state)
 
 
 ```
@@ -148,8 +149,22 @@ joindata <- inner_join(biography,newoffense2, by='Name')
 head(joindata)
 ggplot(joindata, aes(x=Weight, y=Receiving_YDS))+geom_point(position = "jitter")+ggtitle("Relationship between the Weight and Receiving_YDS")
 ```
+
+Conclusion:
+There is not much an relationship between the weight of a player and the receiving yards, but in plot it shows an outlier which display the player Butler, Hakeem.
+
 3. Explore more. Raise a question that can be answered only by looking at two or more data frames. Then answer that question.
+
+Question: I want to check if there is a relationship between the weight and the Tackles_Solo.
 ```{r}
-#Using join for two data frames?
+biography$Name <- as.character(biography$Name) 
+defense $Name <- as.character(defense$Name)
+newdefense <- defense %>% group_by(Name) %>% summarise(Tackles_Solo = mean(Tackles_Solo))
+joindata2 <- inner_join(biography, newdefense, by='Name')
+head(joindata2)
+ggplot(joindata2, aes(x=Weight, y=Tackles_Solo))+geom_point(position = "jitter")+ geom_abline(slope = 1, intercept = 0)+ ggtitle("Relationship between the Weight and Tackles_Solo")+xlim(c(175,300))+ylim(c(0,5))
+  
+  
 ```
 
+Conclusion: There is not really clear and obvious relationship between Tackles_Solo and weight, there might be exits other factors that will effect Tackles_solo. In the plot, it also shows a outlier around weight 200lbs and the tackles_Solo is between 4 and 5.
